@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
 using DbUp;
 using DbUp.Engine;
 using FluentAssertions;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace DbUpX.Tests
@@ -16,16 +16,16 @@ namespace DbUpX.Tests
         {
             return new SqlConnectionStringBuilder
             {
-                DataSource = "localhost",
+                DataSource = "kindev3",
                 InitialCatalog = database,
-                UserID = "SA",
-                Password = "P@ssw0rd",
+                UserID = "sa",
+                Password = "sa",
                 MultipleActiveResultSets = true
             }
             .ConnectionString;
         }
 
-        private const string DatabaseName = "IntegrationTests";
+        private const string DatabaseName = "DbUpIntegrationTests";
 
         private static readonly string ConnectionString = MakeConnectionString(DatabaseName);
 

@@ -1,35 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<PackOnBuild>true</PackOnBuild>
+		<Authors>FISCAL Technologies Ltd</Authors>
+		<Copyright>Copyright 2019 FISCAL Technologies Ltdg</Copyright>
+		<NeutralLanguage>en</NeutralLanguage>
+		<Owners>FISCAL Technologies Ltdf</Owners>
+		<PackageProjectUrl>https://github.com/fiscaltec/DbUpX</PackageProjectUrl>
+		<Summary>Extensions to DbUp supporting easy filtering, ordering and versioning.</Summary>
+		<PackageTags>DbUp database upgrade scripts sql server</PackageTags>
+		<Title>DbUpX</Title>
+		<Description>Extensions to DbUp supporting easy filtering, ordering and versioning.</Description>
+		<PackageId>DbUpX</PackageId>
+		<PackageVersion>2.0.0.0</PackageVersion>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <PackOnBuild>true</PackOnBuild>
-    <Authors>FISCAL Technologies Ltd</Authors>
-    <Copyright>Copyright 2019 FISCAL Technologies Ltd</Copyright>
-    <NeutralLanguage>en</NeutralLanguage>
-    <Owners>FISCAL Technologies Ltd</Owners>
-    <PackageProjectUrl>https://github.com/fiscaltec/DbUpX</PackageProjectUrl>
-    <Summary>Extensions to DbUp supporting easy filtering, ordering and versioning.</Summary>
-    <PackageTags>DbUp database upgrade scripts sql server</PackageTags>
-    <Title>DbUpX</Title>
-    <Description>Extensions to DbUp supporting easy filtering, ordering and versioning.</Description>
-    <PackageId>DbUpX</PackageId>
-    <PackageVersion>1.0.0.0</PackageVersion>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Reference Include="dbup-core">
-      <HintPath>..\DbUp\src\dbup-sqlserver\bin\Debug\netstandard1.3\dbup-core.dll</HintPath>
-    </Reference>
-    <Reference Include="dbup-sqlserver">
-      <HintPath>..\DbUp\src\dbup-sqlserver\bin\Debug\netstandard1.3\dbup-sqlserver.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="dbup-core" Version="4.2.0" />
-    <PackageReference Include="dbup-sqlserver" Version="4.2.0" />
-    <PackageReference Include="NuGet.Build.Packaging" Version="0.2.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="SqlScriptPrefixExtensions.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="dbup-core" Version="6.0.4" />
+		<PackageReference Include="dbup-sqlserver" Version="6.0.0" />
+		<PackageReference Include="NuGet.Build.Packaging" Version="0.2.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Remove="SqlScriptPrefixExtensions.cs" />
+	</ItemGroup>
 </Project>

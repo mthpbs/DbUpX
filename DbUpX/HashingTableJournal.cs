@@ -61,7 +61,7 @@ namespace DbUpX
         {
             if (DoesTableExist())
             {
-                Log().WriteInformation("Fetching list of already executed scripts.");
+                Log().LogInformation("Fetching list of already executed scripts.");
 
                 return Connections().ExecuteCommandsWithManagedConnection(db =>
                     db.Query<(string name, string hash)>(GetJournalEntriesSql())
@@ -69,7 +69,7 @@ namespace DbUpX
                       .ToArray());
             }
 
-            Log().WriteInformation("Journal table does not exist");
+            Log().LogInformation("Journal table does not exist");
             return new string[0];
         }
 
