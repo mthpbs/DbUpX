@@ -1,18 +1,20 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<PackOnBuild>true</PackOnBuild>
 		<Authors>FISCAL Technologies Ltd</Authors>
-		<Copyright>Copyright 2019 FISCAL Technologies Ltdg</Copyright>
+		<Copyright>Copyright 2019 FISCAL Technologies Ltd</Copyright>
 		<NeutralLanguage>en</NeutralLanguage>
-		<Owners>FISCAL Technologies Ltdf</Owners>
-		<PackageProjectUrl>https://github.com/fiscaltec/DbUpX</PackageProjectUrl>
+		<Owners>FISCAL Technologies Ltd</Owners>
+		<PackageProjectUrl>https://github.com/mthpbs/DbUpX</PackageProjectUrl>
 		<Summary>Extensions to DbUp supporting easy filtering, ordering and versioning.</Summary>
 		<PackageTags>DbUp database upgrade scripts sql server</PackageTags>
 		<Title>DbUpX</Title>
 		<Description>Extensions to DbUp supporting easy filtering, ordering and versioning.</Description>
-		<PackageId>DbUpX</PackageId>
+		<PackageId>DbUpX.Reborn</PackageId>
 		<PackageVersion>2.0.0.0</PackageVersion>
+		<PackageReadmeFile>..\README.md</PackageReadmeFile>
+		<PackageLicenseFile>..\LICENSE</PackageLicenseFile>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -25,5 +27,13 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Remove="SqlScriptPrefixExtensions.cs" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="LICENSE">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="README.md">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 </Project>
