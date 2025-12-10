@@ -8,9 +8,9 @@
 		<Owners>FISCAL Technologies Ltd</Owners>
 		<PackageProjectUrl>https://github.com/mthpbs/DbUpX</PackageProjectUrl>
 		<Summary>Extensions to DbUp supporting easy filtering, ordering and versioning.</Summary>
-		<PackageTags>DbUp database upgrade scripts sql server</PackageTags>
+		<PackageTags>DbUp database upgrade scripts sql server postgresql postgres</PackageTags>
 		<Title>DbUpX</Title>
-		<Description>Extensions to DbUp supporting easy filtering, ordering and versioning.</Description>
+		<Description>Extensions to DbUp supporting easy filtering, ordering and versioning. Supports SQL Server and PostgreSQL.</Description>
 		<PackageId>DbUpX.Reborn</PackageId>
 		<PackageVersion>2.0.0.0</PackageVersion>
 		<PackageReadmeFile>..\README.md</PackageReadmeFile>
