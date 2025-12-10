@@ -26,26 +26,26 @@ namespace DbUpX
         {
             return
                 $@"create table {FqSchemaTableName} (
-                    """"""ScriptName"""""" varchar(255) not null,
-                    """"""ContentsHash"""""" varchar(255) not null,
-                    """"""Applied"""""" timestamp not null
+                    ""ScriptName"" varchar(255) not null,
+                    ""ContentsHash"" varchar(255) not null,
+                    ""Applied"" timestamp not null
                 )";
         }
 
         protected override string GetDeleteScriptSql()
         {
-            return $"delete from {FqSchemaTableName} where \"\"ScriptName\"\" = @scriptName";
+            return $"delete from {FqSchemaTableName} where \"ScriptName\" = @scriptName";
         }
 
         protected override string GetInsertScriptSql()
         {
-            return $@"insert into {FqSchemaTableName} (""""""ScriptName"""""", """"""ContentsHash"""""", """"""Applied"""""") 
+            return $@"insert into {FqSchemaTableName} (""ScriptName"", ""ContentsHash"", ""Applied"") 
                       values (@scriptName, @contentsHash, CURRENT_TIMESTAMP)";
         }
 
         protected override string GetJournalEntriesSql()
         {
-            return $"select \"\"ScriptName\"\", \"\"ContentsHash\"\" from {FqSchemaTableName}";
+            return $"select \"ScriptName\", \"ContentsHash\" from {FqSchemaTableName}";
         }
     }
 }

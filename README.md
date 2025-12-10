@@ -10,6 +10,8 @@ and versioning:
 - protection against code reorganisation affecting long script names,
 - utilities for sorting and filtering scripts in helpful ways.
 
+**Supports SQL Server and PostgreSQL databases.**
+
 # Background
 
 The philosophy of DbUp is that database upgrades should absolutely *not* be figured out 
@@ -67,6 +69,8 @@ subset of your scripts.
 
 # Usage
 
+## SQL Server
+
 Build and run your upgrader in the usual way, but use `JournalToSqlWithHashing` to
 get both the change-detecting form of journaling and also the ability to perform your
 own custom sorting:
@@ -79,6 +83,21 @@ var upgrader = DeployChanges.To.SqlDatabase(connectionString)
     .Build()
     .PerformUpgrade();
 ```
+
+## PostgreSQL
+
+For PostgreSQL databases, use `JournalToPostgreSqlWithHashing` instead:
+
+```csharp
+var upgrader = DeployChanges.To.PostgresqlDatabase(connectionString)
+    .WithScriptsAndCodeEmbeddedInAssembly(typeof(MyAssembly).Assembly)
+    .LogToConsole()        
+    .JournalToPostgreSqlWithHashing(scripts => /* filter and sort the scripts here */)    
+    .Build()
+    .PerformUpgrade();
+```
+
+## Filtering and Sorting Scripts
 
 For example, you may have two sets of scripts:
 
