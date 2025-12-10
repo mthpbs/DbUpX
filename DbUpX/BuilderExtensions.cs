@@ -46,7 +46,7 @@ namespace DbUpX
         }
 
         /// <summary>
-        /// Configures hashing script contents and saving them to the journal table.
+        /// Configures hashing script contents and saving them to the journal table for SQL Server.
         /// This means that if a script is not changed, it won't be re-run, but if it is
         /// changed then it will. This avoids the need to treat "run always" and 
         /// "run once" scripts differently
@@ -68,6 +68,44 @@ namespace DbUpX
             builder.Configure(config =>
             {
                 config.Journal = new SqlHashingJournal(
+                    () => config.ConnectionManager,
+                    () => config.Log,
+                    schemaName,
+                    tableName);
+
+                config.ScriptFilter = new DelegatedFilter(
+                    scripts => (filter != null 
+                                    ? filter(scripts) 
+                                    : scripts)
+                                        .HashNames());
+            });
+
+            return builder;
+        }
+
+        /// <summary>
+        /// Configures hashing script contents and saving them to the journal table for PostgreSQL.
+        /// This means that if a script is not changed, it won't be re-run, but if it is
+        /// changed then it will. This avoids the need to treat "run always" and 
+        /// "run once" scripts differently
+        /// 
+        /// A filter is also installed that ensures script names include the hash.
+        /// You can optionally provide your own additional filtering.
+        /// </summary>
+        /// <returns>The to PostgreSQL with hashing.</returns>
+        /// <param name="builder">Builder.</param>
+        /// <param name="filter">Filter.</param>
+        /// <param name="schemaName">Schema name.</param>
+        /// <param name="tableName">Table name.</param>
+        public static UpgradeEngineBuilder JournalToPostgreSqlWithHashing(
+            this UpgradeEngineBuilder builder,
+            Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> filter = null,
+            string schemaName = null,
+            string tableName = null)
+        {
+            builder.Configure(config =>
+            {
+                config.Journal = new PostgreSqlHashingJournal(
                     () => config.ConnectionManager,
                     () => config.Log,
                     schemaName,
