@@ -18,8 +18,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="dbup-core" Version="6.0.4" />
-		<PackageReference Include="dbup-postgresql" Version="5.0.37" />
+		<PackageReference Include="dbup-core" Version="6.0.15" />
+		<PackageReference Include="dbup-postgresql" Version="6.1.5" />
 		<PackageReference Include="dbup-sqlserver" Version="6.0.0" />
 		<PackageReference Include="NuGet.Build.Packaging" Version="0.2.2">
 			<PrivateAssets>all</PrivateAssets>
