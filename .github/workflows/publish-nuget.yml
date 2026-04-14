@@ -1,0 +1,73 @@
+name: Publish NuGet Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version (for example: 2.1.0 or v2.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      NUGET_SOURCE: https://api.nuget.org/v3/index.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve package version from tag
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ -z "$INPUT_VERSION" ]]; then
+              echo "Manual runs require the 'version' input."
+              exit 1
+            fi
+            version="${INPUT_VERSION#v}"
+          else
+            ref="${GITHUB_REF_NAME}"
+            if [[ ! "$ref" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)$ ]]; then
+              echo "Tag '$ref' is not valid. Expected format: vX.Y.Z or vX.Y.Z-suffix"
+              exit 1
+            fi
+            version="${ref#v}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version '$version' is not valid. Expected format: X.Y.Z or X.Y.Z-suffix"
+            exit 1
+          fi
+
+          echo "PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Resolved package version: $version"
+
+      - name: Restore
+        run: dotnet restore DbUpX.sln
+
+      - name: Build
+        run: dotnet build DbUpX.sln -c Release --no-restore
+
+      - name: Test (exclude integration)
+        run: dotnet test DbUpX.Tests/DbUpX.Tests.csproj -c Release --no-build --filter "FullyQualifiedName!~IntegrationTests"
+
+      - name: Pack
+        run: dotnet pack DbUpX/DbUpX.csproj -c Release --no-build -o ./artifacts /p:PackageVersion=${{ env.PACKAGE_VERSION }}
+
+      - name: Push package to NuGet.org
+        run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source "${{ env.NUGET_SOURCE }}" --skip-duplicate
