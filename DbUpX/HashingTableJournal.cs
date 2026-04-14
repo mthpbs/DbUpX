@@ -51,10 +51,20 @@ namespace DbUpX
 
         protected virtual string DoesTableExistSql()
         {
-            return $"select 1 from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{UnquotedTableName}'" +
+            return "select 1 from INFORMATION_SCHEMA.TABLES where TABLE_NAME = @tableName " +
                 (string.IsNullOrEmpty(UnquotedTableSchema)
                     ? string.Empty
-                    : $"and TABLE_SCHEMA = '{UnquotedTableSchema}'");
+                    : "and TABLE_SCHEMA = @tableSchema");
+        }
+
+        protected virtual object DoesTableExistSqlArgs()
+        {
+            if (string.IsNullOrEmpty(UnquotedTableSchema))
+            {
+                return new { tableName = UnquotedTableName };
+            }
+
+            return new { tableName = UnquotedTableName, tableSchema = UnquotedTableSchema };
         }
 
         public virtual string[] GetExecutedScripts()
@@ -100,8 +110,9 @@ namespace DbUpX
         protected virtual bool DoesTableExist()
         {
             var sql = DoesTableExistSql();
+            var args = DoesTableExistSqlArgs();
             var result = Connections().ExecuteCommandsWithManagedConnection(
-                db => db.ExecuteScalar(sql));
+                db => db.ExecuteScalar(sql, args));
             return result != null;
         }
     }
