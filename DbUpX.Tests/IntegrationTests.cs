@@ -16,10 +16,11 @@ namespace DbUpX.Tests
         {
             return new SqlConnectionStringBuilder
             {
-                DataSource = "kindev3",
+                DataSource = "localhost",
                 InitialCatalog = database,
                 UserID = "sa",
-                Password = "sa",
+                Password = "P@ssw0rd",
+                TrustServerCertificate = true,
                 MultipleActiveResultSets = true
             }
             .ConnectionString;
