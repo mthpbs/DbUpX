@@ -12,6 +12,15 @@ and versioning:
 
 **Supports SQL Server and PostgreSQL databases.**
 
+## NuGet Package
+
+- Package: [DbUpX.Reborn](https://www.nuget.org/packages/DbUpX.Reborn)
+- Install:
+
+```bash
+dotnet add package DbUpX.Reborn
+```
+
 # Background
 
 The philosophy of DbUp is that database upgrades should absolutely *not* be figured out 
