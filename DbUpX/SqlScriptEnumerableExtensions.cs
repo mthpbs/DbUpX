@@ -57,18 +57,39 @@ namespace DbUpX
             this IEnumerable<SqlScript> unsorted,
             string commentPrefix)
         {
-            var sorted = new List<SqlScript>();
-            var within = new HashSet<SqlScript>();
-
             bool MatchNames(string whole, string part)
             {
                 whole = Path.GetFileNameWithoutExtension(whole) ?? whole;
                 return whole.EndsWith(part.Trim(), StringComparison.InvariantCultureIgnoreCase);
             }
 
+            return unsorted.OrderByDependency(commentPrefix, MatchNames);
+        }
+
+        /// <summary>
+        /// Sorts the scripts by dependency comments using a custom name-matching predicate.
+        /// A script can depend on other scripts by listing their comma-separated names after
+        /// a special comment prefix. Depended-on scripts will sort before the scripts that
+        /// depend on them.
+        /// </summary>
+        /// <param name="unsorted">Unsorted scripts.</param>
+        /// <param name="commentPrefix">Comment prefix to look for in script contents.</param>
+        /// <param name="matchName">
+        /// Predicate that decides whether a script name (first argument) satisfies a dependency
+        /// reference (second argument).
+        /// </param>
+        /// <returns>The scripts ordered by dependency.</returns>
+        public static IEnumerable<SqlScript> OrderByDependency(
+            this IEnumerable<SqlScript> unsorted,
+            string commentPrefix,
+            Func<string, string, bool> matchName)
+        {
+            var sorted = new List<SqlScript>();
+            var within = new HashSet<SqlScript>();
+
             SqlScript ResolveScriptName(string name, IEnumerable<SqlScript> scripts)
             {
-                var matches = scripts.Where(s => MatchNames(s.Name, name)).ToList();
+                var matches = scripts.Where(s => matchName(s.Name, name)).ToList();
                 if (matches.Count == 1)
                 {
                     return matches[0];
