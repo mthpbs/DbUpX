@@ -104,5 +104,38 @@ namespace DbUpX.Tests
             Action ex = () => unsorted.OrderByDependency(_prefix);
             ex.Should().Throw<InvalidOperationException>();
         }
+
+        [Fact]
+        public void CustomMatchNameResolvesSchemaQualifiedDependency()
+        {
+            var bigTables   = new SqlScript("dba.BigTables",   "no dependencies");
+            var createUsers = new SqlScript("dbo.CreateUsers", $"contents {_prefix} dba.BigTables");
+
+            Func<string, string, bool> exactMatch = (whole, part) =>
+                whole.Equals(part.Trim(), StringComparison.InvariantCultureIgnoreCase);
+
+            var sorted = new[] { createUsers, bigTables }
+                .OrderByDependency(_prefix, exactMatch)
+                .ToList();
+
+            sorted.Should().ContainInOrder(bigTables, createUsers);
+        }
+
+        [Fact]
+        public void CustomMatchNameDisambiguatesSchemaQualifiedNames()
+        {
+            var dboBigTables = new SqlScript("dbo.BigTables",   "no dependencies");
+            var dbaBigTables = new SqlScript("dba.BigTables",   "no dependencies");
+            var createUsers  = new SqlScript("dbo.CreateUsers", $"contents {_prefix} dba.BigTables");
+
+            Func<string, string, bool> exactMatch = (whole, part) =>
+                whole.Equals(part.Trim(), StringComparison.InvariantCultureIgnoreCase);
+
+            var sorted = new[] { createUsers, dboBigTables, dbaBigTables }
+                .OrderByDependency(_prefix, exactMatch)
+                .ToList();
+
+            sorted.IndexOf(dbaBigTables).Should().BeLessThan(sorted.IndexOf(createUsers));
+        }
     }
 }
