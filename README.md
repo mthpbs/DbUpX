@@ -200,3 +200,14 @@ Some of the tests (`IntegrationTests.cs`) run on a real SQL Server database. You
 spin one up by installing [docker](https://www.docker.com/) and running the
 `start-sql.sh` script. (On Windows you can rename it to `start-sql.bat` and it should
 still be correct.)
+
+The integration tests read their credentials from environment variables and fail
+fast if any are missing, so set these to match the server before running them:
+
+- `DBUPX_TEST_SQLSERVER` — data source (e.g. `localhost`)
+- `DBUPX_TEST_SQLUSER` — SQL login user (e.g. `sa`)
+- `DBUPX_TEST_SQLPASSWORD` — SQL login password (e.g. `P@ssw0rd` from `start-sql.sh`)
+
+```powershell
+$env:DBUPX_TEST_SQLSERVER = "localhost"; $env:DBUPX_TEST_SQLUSER = "sa"; $env:DBUPX_TEST_SQLPASSWORD = "P@ssw0rd"
+```

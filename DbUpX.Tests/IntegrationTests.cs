@@ -12,14 +12,20 @@ namespace DbUpX.Tests
 {
     public class IntegrationTests
     {
+        private static string RequireEnv(string name) =>
+            Environment.GetEnvironmentVariable(name)
+                ?? throw new InvalidOperationException(
+                    $"Integration tests require environment variable '{name}'. " +
+                    "See AGENTS.md > Integration Test Notes for setup.");
+
         private static string MakeConnectionString(string database)
         {
             return new SqlConnectionStringBuilder
             {
-                DataSource = "localhost",
+                DataSource = RequireEnv("DBUPX_TEST_SQLSERVER"),
                 InitialCatalog = database,
-                UserID = "sa",
-                Password = "P@ssw0rd",
+                UserID = RequireEnv("DBUPX_TEST_SQLUSER"),
+                Password = RequireEnv("DBUPX_TEST_SQLPASSWORD"),
                 TrustServerCertificate = true,
                 MultipleActiveResultSets = true
             }
@@ -28,9 +34,9 @@ namespace DbUpX.Tests
 
         private const string DatabaseName = "DbUpIntegrationTests";
 
-        private static readonly string ConnectionString = MakeConnectionString(DatabaseName);
+        private readonly string ConnectionString;
 
-        private static readonly string MasterConnectionString = MakeConnectionString("master");
+        private readonly string MasterConnectionString;
 
         private static T WithDB<T>(string connectionString, Func<Func<IDbCommand>, T> op)
         {
@@ -43,6 +49,9 @@ namespace DbUpX.Tests
 
         public IntegrationTests()
         {
+            ConnectionString = MakeConnectionString(DatabaseName);
+            MasterConnectionString = MakeConnectionString("master");
+
             WithDB(MasterConnectionString, db => db.Execute($@"
                 if DB_ID('{DatabaseName}') is not null
                 begin
@@ -82,7 +91,7 @@ namespace DbUpX.Tests
                 });
         }
 
-        private static IDictionary<string, string> GetHashes()
+        private IDictionary<string, string> GetHashes()
         {
             return WithDB(ConnectionString, db => db.Query<(string name, string hash)>(
                 @"select ScriptName, ContentsHash from SchemaVersionHash"))

@@ -8,10 +8,47 @@ Follow these rules before introducing new patterns.
 ## Repository Snapshot
 - Solution: `DbUpX.sln`
 - Library project: `DbUpX/DbUpX.csproj` (`netstandard2.0`)
-- Test project: `DbUpX.Tests/DbUpX.Tests.csproj` (`net9.0`)
+- Test project: `DbUpX.Tests/DbUpX.Tests.csproj` (`net10.0`)
 - Main language: C#
 - Test framework: xUnit + FluentAssertions + Moq
 - Domain: DbUp extensions for script filtering, dependency ordering, and hash-based journaling
+
+## Architecture
+
+The one idea that ties the library together: DbUp's `IJournal.GetExecutedScripts()`
+returns only `string[]`, with no place to carry a content hash. DbUpX works around
+this by **encoding the hash into the script name** as `"plainName#hash"`
+(`NameWithHash`, SHA256 base64 of the UTF-8 contents). Everything else follows:
+
+- **`BuilderExtensions`** (entry point) — `JournalToSqlWithHashing` /
+  `JournalToPostgreSqlWithHashing` call DbUp's `builder.Configure(...)` to install
+  (a) a hashing `Journal` and (b) a `ScriptFilter` that runs the caller's optional
+  filter delegate and then appends `#hash` to every name via `HashNames()`.
+  `WithFilter` installs just a filter with no hashing.
+- **The filter loop** — the installed `DelegatedFilter` (an `IScriptFilter`) applies
+  the sort/filter, then drops scripts whose (already-hashed) name is in DbUp's
+  executed set. So a script re-runs automatically iff its contents changed (its hash,
+  hence its name, changed). This replaces DbUp's "run once vs run always" distinction:
+  unchanged scripts are skipped, changed ones re-run.
+- **`HashingTableJournal`** (abstract `IJournal`) — stores `ScriptName` +
+  `ContentsHash` + `Applied` in `SchemaVersionHash` (default schema `dbo`/`public`).
+  Vendor SQL lives only in the subclasses `SqlHashingJournal` /
+  `PostgreSqlHashingJournal`; identifier quoting goes through DbUp's `ISqlObjectParser`,
+  and the table-existence check is parameterized (`@tableName`/`@tableSchema`) to avoid
+  SQL injection — see `HashingTableJournalSecurityTests`.
+- **`SqlScriptEnumerableExtensions`** (note: the class is `SqlScriptDependencyExtensions`)
+  — the LINQ toolkit callers compose inside their filter delegate: `WithPrefix` (keep
+  scripts matching a namespace prefix *and strip that prefix* so journal names survive
+  code moves), `HashNames`, and `OrderByDependency` (topological sort driven by a
+  `-- #requires A, B` comment; throws on missing, ambiguous, or cyclic dependencies).
+- **`DatabaseExtensions`** — a minimal Dapper-like helper
+  (`Execute`/`ExecuteScalar`/`Query<T>`) built over DbUp's `Func<IDbCommand>` command
+  factory instead of an `IDbConnection`. `Query<T>` casts directly for single-column
+  results and otherwise matches a constructor to the column types (works with
+  `ValueTuple`). Used by the journals and the tests.
+
+Typical caller usage is a fluent DbUp chain whose filter argument composes the LINQ
+extensions above; `README.md` has full SQL Server and PostgreSQL examples.
 
 ## Rule Sources (Cursor / Copilot)
 - Checked `.cursorrules`: not present
@@ -20,7 +57,7 @@ Follow these rules before introducing new patterns.
 - Therefore, no extra editor/assistant rule files apply right now
 
 ## Environment And Tooling
-- Use .NET SDK compatible with test target `net9.0`
+- Use .NET SDK compatible with test target `net10.0`
 - Use `dotnet` CLI from repository root
 - Docker is needed for SQL Server integration tests
 - Ignore build artifacts (`bin/`, `obj/`) per `.gitignore`
@@ -72,17 +109,54 @@ Agents should not introduce a new formatter/analyzer config unless requested.
 - `dotnet test DbUpX.Tests/DbUpX.Tests.csproj -c Release --filter "FullyQualifiedName!~IntegrationTests"`
 
 ## Integration Test Notes
-`IntegrationTests` use a real SQL Server and hard-coded connection settings.
+`IntegrationTests` use a real SQL Server. Connection credentials are read from
+environment variables (no credentials are hard-coded in the test source):
 
-Current test code expects:
-- Data source: `kindev3`
-- User: `sa`
-- Password: `sa`
-- Database name: `DbUpIntegrationTests`
+| Variable | Purpose |
+| --- | --- |
+| `DBUPX_TEST_SQLSERVER` | SQL Server data source (host/instance) |
+| `DBUPX_TEST_SQLUSER` | SQL login user |
+| `DBUPX_TEST_SQLPASSWORD` | SQL login password |
 
-`README.md` also mentions `start-sql.sh` for Docker SQL Server bootstrapping.
-If integration tests fail in CI/local, run unit-like tests only via filter and
-treat integration runs as environment-dependent.
+The database name is fixed at `DbUpIntegrationTests` (not a credential, not
+configurable). If any of the three variables is unset, the integration tests
+**fail fast** with an `InvalidOperationException` naming the missing variable —
+they do not fall back to defaults.
+
+Each integration test **drops and recreates** the `DbUpIntegrationTests` database,
+so it is destructive to anything under that name on the target server.
+
+Spin up a matching server with `start-sql.sh` (Docker; SQL Server 2017, port 1433,
+SA password `P@ssw0rd`), then set the variables to match it before running:
+
+```powershell
+# PowerShell
+$env:DBUPX_TEST_SQLSERVER = "localhost"
+$env:DBUPX_TEST_SQLUSER = "sa"
+$env:DBUPX_TEST_SQLPASSWORD = "P@ssw0rd"
+```
+
+```bash
+# bash
+export DBUPX_TEST_SQLSERVER=localhost
+export DBUPX_TEST_SQLUSER=sa
+export DBUPX_TEST_SQLPASSWORD='P@ssw0rd'
+```
+
+If integration tests fail in CI/local, run the non-integration tests only via
+filter (`--filter "FullyQualifiedName!~IntegrationTests"`) and treat integration
+runs as environment-dependent.
+
+## CI / Publishing
+`.github/workflows/publish-nuget.yml` builds, runs the non-integration tests, packs,
+and pushes the package to NuGet.
+
+- Triggered by pushing a `vX.Y.Z` tag, or manually via `workflow_dispatch` with a
+  `version` input.
+- The package version comes from the tag/input (regex-validated), **not** from
+  `PackageVersion` in `DbUpX/DbUpX.csproj`.
+- Publishing runs in the `production` GitHub environment and authenticates via NuGet
+  OIDC login, with an API-key fallback.
 
 ## Code Style Guidelines
 
