@@ -12,10 +12,12 @@ namespace DbUpX
         private class DelegatedFilter : IScriptFilter
         {
             private readonly Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> _sort;
+            private readonly bool _respectLocks;
 
-            public DelegatedFilter(Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> sort)
+            public DelegatedFilter(Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> sort, bool respectLocks = false)
             {
                 _sort = sort;
+                _respectLocks = respectLocks;
             }
 
             public IEnumerable<SqlScript> Filter(
@@ -23,7 +25,9 @@ namespace DbUpX
                 HashSet<string> executedScriptNames,
                 ScriptNameComparer comparer)
             {
-                return _sort(sorted).Where(s => !executedScriptNames.Contains(s.Name));
+                return _sort(sorted).Where(s => !executedScriptNames.Contains(s.Name) &&
+                    (!_respectLocks || !executedScriptNames.Contains(
+                        new NameWithHash(NameWithHash.Parse(s.Name).PlainName, HashingTableJournal.LockedHash).ToString())));
             }
         }
 
@@ -48,7 +52,7 @@ namespace DbUpX
         /// <summary>
         /// Configures hashing script contents and saving them to the journal table for SQL Server.
         /// This means that if a script is not changed, it won't be re-run, but if it is
-        /// changed then it will. This avoids the need to treat "run always" and 
+        /// changed then it will, unless its journal entry is locked. This avoids the need to treat "run always" and
         /// "run once" scripts differently
         /// 
         /// A filter is also installed that ensures script names include the hash.
@@ -70,7 +74,7 @@ namespace DbUpX
 
         /// <summary>
         /// Configures SQL Server filtering and journaling with the same hashing mode.
-        /// Opting into normalization can rerun scripts recorded with legacy raw hashes.
+        /// Opting into normalization can rerun unlocked scripts recorded with legacy raw hashes.
         /// </summary>
         public static UpgradeEngineBuilder JournalToSqlWithHashing(
             this UpgradeEngineBuilder builder,
@@ -93,7 +97,7 @@ namespace DbUpX
                     scripts => (filter != null 
                                     ? filter(scripts) 
                                     : scripts)
-                                        .HashNames(hashingMode));
+                                        .HashNames(hashingMode), respectLocks: true);
             });
 
             return builder;
@@ -102,7 +106,7 @@ namespace DbUpX
         /// <summary>
         /// Configures hashing script contents and saving them to the journal table for PostgreSQL.
         /// This means that if a script is not changed, it won't be re-run, but if it is
-        /// changed then it will. This avoids the need to treat "run always" and 
+        /// changed then it will, unless its journal entry is locked. This avoids the need to treat "run always" and
         /// "run once" scripts differently
         /// 
         /// A filter is also installed that ensures script names include the hash.
@@ -124,7 +128,7 @@ namespace DbUpX
 
         /// <summary>
         /// Configures PostgreSQL filtering and journaling with the same hashing mode.
-        /// Opting into normalization can rerun scripts recorded with legacy raw hashes.
+        /// Opting into normalization can rerun unlocked scripts recorded with legacy raw hashes.
         /// </summary>
         public static UpgradeEngineBuilder JournalToPostgreSqlWithHashing(
             this UpgradeEngineBuilder builder,
@@ -147,7 +151,7 @@ namespace DbUpX
                     scripts => (filter != null 
                                     ? filter(scripts) 
                                     : scripts)
-                                        .HashNames(hashingMode));
+                                        .HashNames(hashingMode), respectLocks: true);
             });
 
             return builder;

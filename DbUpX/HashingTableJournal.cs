@@ -14,6 +14,9 @@ namespace DbUpX
     /// </summary>
     public abstract class HashingTableJournal : IJournal
     {
+        // Not a base64 hash; used only when passing locked entries to the hashing filter.
+        internal const string LockedHash = "*";
+
         private readonly SqlScriptHashingMode _hashingMode;
 
         protected Func<IConnectionManager> Connections { get; private set; }
@@ -65,6 +68,14 @@ namespace DbUpX
         protected abstract string GetInsertScriptSql();
         protected abstract string GetDeleteScriptSql();
 
+        /// <summary>
+        /// Upgrades an existing journal table before entries are read or its schema is verified.
+        /// The default does nothing, preserving compatibility with custom journals.
+        /// </summary>
+        protected virtual void UpgradeTableIfRequired(Func<IDbCommand> db)
+        {
+        }
+
         protected virtual string DoesTableExistSql()
         {
             return "select 1 from INFORMATION_SCHEMA.TABLES where TABLE_NAME = @tableName " +
@@ -83,6 +94,10 @@ namespace DbUpX
             return new { tableName = UnquotedTableName, tableSchema = UnquotedTableSchema };
         }
 
+        /// <summary>
+        /// Reads executed names, upgrading an existing journal table if required.
+        /// Built-in journals represent locked entries as name#* without changing stored hashes.
+        /// </summary>
         public virtual string[] GetExecutedScripts()
         {
             if (DoesTableExist())
@@ -90,9 +105,12 @@ namespace DbUpX
                 Log().LogInformation("Fetching list of already executed scripts.");
 
                 return Connections().ExecuteCommandsWithManagedConnection(db =>
-                    db.Query<(string name, string hash)>(GetJournalEntriesSql())
+                {
+                    UpgradeTableIfRequired(db);
+                    return db.Query<(string name, string hash)>(GetJournalEntriesSql())
                       .Select(i => new NameWithHash(i.name, i.hash).ToString())
-                      .ToArray());
+                      .ToArray();
+                });
             }
 
             Log().LogInformation("Journal table does not exist");
@@ -117,6 +135,7 @@ namespace DbUpX
         {
             if (DoesTableExist())
             {
+                UpgradeTableIfRequired(db);
                 return;
             }
 

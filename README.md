@@ -65,6 +65,9 @@ script, so it can detect if a script has changed since it was run. If it has, it
 again. This takes care of almost all use cases in an optimal way. If you want a script
 to be "run once", then simply don't make changes to it.
 
+An entry can also be explicitly locked to prevent future runs even when its contents
+change; see [Locking scripts](#locking-scripts).
+
 ## Brittle long script names
 
 In DbUp scripts are gathered from embedded resources and script generator classes. They
@@ -105,6 +108,56 @@ var upgrader = DeployChanges.To.PostgresqlDatabase(connectionString)
     .Build()
     .PerformUpgrade();
 ```
+
+## Locking scripts
+
+Both hashing journals include an `IsLocked` column, defaulting to false. Set it on
+an existing entry to skip that script regardless of its current content hash:
+
+```sql
+-- SQL Server: lock an existing script
+UPDATE [dbo].[SchemaVersionHash]
+SET [IsLocked] = 1
+WHERE [ScriptName] = N'script.sql';
+
+-- Unlock it to restore normal hash comparison
+UPDATE [dbo].[SchemaVersionHash]
+SET [IsLocked] = 0
+WHERE [ScriptName] = N'script.sql';
+```
+
+```sql
+-- PostgreSQL: lock an existing script
+UPDATE public."SchemaVersionHash"
+SET "IsLocked" = true
+WHERE "ScriptName" = 'script.sql';
+
+-- Unlock it to restore normal hash comparison
+UPDATE public."SchemaVersionHash"
+SET "IsLocked" = false
+WHERE "ScriptName" = 'script.sql';
+```
+
+Use your configured schema/table and the exact stored `ScriptName`, without a hash.
+If your filter uses `WithPrefix`, this is the name after prefix removal. Renaming a
+script creates a different identity and does not carry its lock to the new name.
+Skipping a locked script preserves its `ContentsHash` and `Applied` timestamp.
+After unlocking, the script runs only if its current hash differs from the stored
+hash. Locks work with raw and normalized hashing and do not change dependency ordering.
+
+Existing journal tables are automatically upgraded with a non-null `IsLocked` column
+(`bit` on SQL Server, `boolean` on PostgreSQL); existing entries become unlocked.
+This happens on first journal access, including `GetScriptsToExecute()` and
+`IsUpgradeRequired()`, even when no scripts need to run. The connection therefore
+needs permission to alter the journal table for this one-time migration. Migration
+errors propagate rather than ignoring locks. Reading a missing journal does not
+create it; normal execution creates the table with the new column.
+
+Locks are evaluated when the execution list is calculated. Change locks between
+upgrade runs; changes during an active run cannot stop scripts already selected.
+Use the hashing builder's installed filter for lock handling; standalone `WithFilter`
+does not interpret locks. Internally, `GetExecutedScripts()` represents a locked
+entry as `script.sql#*`; the actual stored hash remains unchanged.
 
 ## Optional EOL and BOM normalization
 
