@@ -1,5 +1,4 @@
 using System;
-using System.Data;
 using DbUp.Engine.Output;
 using DbUp.Engine.Transactions;
 using DbUp.Postgresql;
@@ -39,22 +38,8 @@ namespace DbUpX
                 $@"create table {FqSchemaTableName} (
                     ""ScriptName"" varchar(255) not null,
                     ""ContentsHash"" varchar(255) not null,
-                    ""Applied"" timestamp not null,
-                    ""IsLocked"" boolean not null default false
+                    ""Applied"" timestamp not null
                 )";
-        }
-
-        /// <summary>Adds the lock column to an existing journal without changing its entries.</summary>
-        protected override void UpgradeTableIfRequired(Func<IDbCommand> db)
-        {
-            var exists = db.ExecuteScalar(
-                "select 1 from pg_catalog.pg_attribute where attrelid = pg_catalog.to_regclass(@tableName) " +
-                "and attname = @columnName and not attisdropped",
-                new { tableName = FqSchemaTableName, columnName = "IsLocked" });
-            if (exists == null)
-            {
-                db.Execute($"alter table {FqSchemaTableName} add column if not exists \"IsLocked\" boolean not null default false");
-            }
         }
 
         protected override string GetDeleteScriptSql()
@@ -70,7 +55,7 @@ namespace DbUpX
 
         protected override string GetJournalEntriesSql()
         {
-            return $"select \"ScriptName\", case when \"IsLocked\" then '{LockedHash}' else \"ContentsHash\" end from {FqSchemaTableName}";
+            return $"select \"ScriptName\", \"ContentsHash\" from {FqSchemaTableName}";
         }
     }
 }
