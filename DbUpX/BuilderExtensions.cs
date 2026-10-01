@@ -65,19 +65,35 @@ namespace DbUpX
             string schemaName = null,
             string tableName = null)
         {
+            return builder.JournalToSqlWithHashing(SqlScriptHashingMode.Raw, filter, schemaName, tableName);
+        }
+
+        /// <summary>
+        /// Configures SQL Server filtering and journaling with the same hashing mode.
+        /// Opting into normalization can rerun scripts recorded with legacy raw hashes.
+        /// </summary>
+        public static UpgradeEngineBuilder JournalToSqlWithHashing(
+            this UpgradeEngineBuilder builder,
+            SqlScriptHashingMode hashingMode,
+            Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> filter = null,
+            string schemaName = null,
+            string tableName = null)
+        {
+            SqlScriptContentNormalizer.ValidateProviderMode(hashingMode, SqlScriptHashingMode.NormalizeSqlServer);
             builder.Configure(config =>
             {
                 config.Journal = new SqlHashingJournal(
                     () => config.ConnectionManager,
                     () => config.Log,
                     schemaName,
-                    tableName);
+                    tableName,
+                    hashingMode);
 
                 config.ScriptFilter = new DelegatedFilter(
                     scripts => (filter != null 
                                     ? filter(scripts) 
                                     : scripts)
-                                        .HashNames());
+                                        .HashNames(hashingMode));
             });
 
             return builder;
@@ -103,19 +119,35 @@ namespace DbUpX
             string schemaName = null,
             string tableName = null)
         {
+            return builder.JournalToPostgreSqlWithHashing(SqlScriptHashingMode.Raw, filter, schemaName, tableName);
+        }
+
+        /// <summary>
+        /// Configures PostgreSQL filtering and journaling with the same hashing mode.
+        /// Opting into normalization can rerun scripts recorded with legacy raw hashes.
+        /// </summary>
+        public static UpgradeEngineBuilder JournalToPostgreSqlWithHashing(
+            this UpgradeEngineBuilder builder,
+            SqlScriptHashingMode hashingMode,
+            Func<IEnumerable<SqlScript>, IEnumerable<SqlScript>> filter = null,
+            string schemaName = null,
+            string tableName = null)
+        {
+            SqlScriptContentNormalizer.ValidateProviderMode(hashingMode, SqlScriptHashingMode.NormalizePostgreSql);
             builder.Configure(config =>
             {
                 config.Journal = new PostgreSqlHashingJournal(
                     () => config.ConnectionManager,
                     () => config.Log,
                     schemaName,
-                    tableName);
+                    tableName,
+                    hashingMode);
 
                 config.ScriptFilter = new DelegatedFilter(
                     scripts => (filter != null 
                                     ? filter(scripts) 
                                     : scripts)
-                                        .HashNames());
+                                        .HashNames(hashingMode));
             });
 
             return builder;

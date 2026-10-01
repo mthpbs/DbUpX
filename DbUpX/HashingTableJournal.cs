@@ -14,6 +14,8 @@ namespace DbUpX
     /// </summary>
     public abstract class HashingTableJournal : IJournal
     {
+        private readonly SqlScriptHashingMode _hashingMode;
+
         protected Func<IConnectionManager> Connections { get; private set; }
         protected Func<IUpgradeLog> Log { get; private set; }
         protected ISqlObjectParser SqlObjectParser { get; private set; }
@@ -35,7 +37,21 @@ namespace DbUpX
             ISqlObjectParser sqlObjectParser,
             string schemaName,
             string tableName)
+            : this(connections, logger, sqlObjectParser, schemaName, tableName, SqlScriptHashingMode.Raw)
         {
+        }
+
+        /// <summary>Creates a journal that stores hashes computed with the selected mode.</summary>
+        protected HashingTableJournal(
+            Func<IConnectionManager> connections,
+            Func<IUpgradeLog> logger,
+            ISqlObjectParser sqlObjectParser,
+            string schemaName,
+            string tableName,
+            SqlScriptHashingMode hashingMode)
+        {
+            SqlScriptContentNormalizer.ValidateMode(hashingMode);
+            _hashingMode = hashingMode;
             Connections = connections;
             Log = logger;
             SqlObjectParser = sqlObjectParser;
@@ -85,7 +101,7 @@ namespace DbUpX
 
         public virtual void StoreExecutedScript(SqlScript script, Func<IDbCommand> db)
         {
-            var name = NameWithHash.FromScript(script);
+            var name = NameWithHash.FromScript(script, _hashingMode);
 
             db.Execute(GetDeleteScriptSql(), new { scriptName = name.PlainName });
 

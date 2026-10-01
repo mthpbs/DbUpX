@@ -63,15 +63,23 @@ namespace DbUpX
 
         /// <summary>
         /// Given a script, returns the parsed name. If the name was already
-        /// in name#hash format, checks that the hash was consistent with
-        /// the script contents.
+        /// in name#hash format, recomputes its hash from the script contents.
         /// </summary>
         /// <returns>The script.</returns>
         /// <param name="script">Script.</param>
         public static NameWithHash FromScript(SqlScript script)
         {
+            return FromScript(script, SqlScriptHashingMode.Raw);
+        }
+
+        /// <summary>
+        /// Recomputes a script's content hash using the selected mode, retaining its plain name.
+        /// The executable script contents are not changed.
+        /// </summary>
+        public static NameWithHash FromScript(SqlScript script, SqlScriptHashingMode hashingMode)
+        {
             var name = TryParse(script.Name, out var result) ? result.PlainName : script.Name;
-            return new NameWithHash(name, GenerateHash(script.Contents));
+            return new NameWithHash(name, GenerateHash(script.Contents, hashingMode));
         }
 
         /// <summary>
@@ -90,6 +98,18 @@ namespace DbUpX
         /// <param name="content">Content.</param>
         public static string GenerateHash(string content)
         {
+            return GenerateHash(content, SqlScriptHashingMode.Raw);
+        }
+
+        /// <summary>
+        /// Returns a base64 SHA256 hash of UTF-8 content using the selected normalization mode.
+        /// Normalized modes ignore one leading BOM and normalize EOLs outside quoted SQL content.
+        /// Incomplete quoted regions or comments, and PostgreSQL ordinary strings containing
+        /// backslashes, retain their original EOLs throughout the script.
+        /// </summary>
+        public static string GenerateHash(string content, SqlScriptHashingMode hashingMode)
+        {
+            content = SqlScriptContentNormalizer.Normalize(content, hashingMode);
             using (var algorithm = SHA256.Create())
             {
                 return Convert.ToBase64String(
