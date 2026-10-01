@@ -132,17 +132,23 @@ the mode. The builder uses the same mode for filtering and journal storage.
 
 Normalization converts CRLF and CR to LF outside quoted SQL content, including
 inside comments. It preserves strings and quoted identifiers exactly, including
-SQL Server bracketed identifiers and PostgreSQL dollar-quoted strings. Consequently,
-different line endings **inside** a multiline string still produce different hashes.
-The SQL passed to the executor is always the original content.
+SQL Server bracketed identifiers. Consequently, different line endings **inside** a
+multiline string still produce different hashes. The SQL passed to the executor is
+always the original content.
+
+PostgreSQL dollar-quoted bodies (`$$ ... $$`, `$body$ ... $body$`) are scanned as
+ordinary SQL, the same way SQL Server procedure bodies are: line endings in function
+and `DO` block code are normalized, while ordinary strings inside the body are still
+preserved. This also keeps DbUp `$variable$` tokens from being mistaken for dollar
+quotes. PostgreSQL ordinary strings assume `standard_conforming_strings = on` (the
+default since PostgreSQL 9.1), so a backslash is literal there; only `E'...'`
+strings treat backslash as an escape.
 
 Spaces, tabs, extra blank lines, final-newline presence, comment text, embedded BOMs,
 and other Unicode characters remain significant. This is not general SQL formatting
-or semantic equivalence detection. For unterminated strings, quoted identifiers,
-dollar quotes, or block comments, the entire script retains its original line
-endings. PostgreSQL ordinary strings containing backslashes also retain original
-line endings throughout the script because their interpretation depends on session
-settings. A leading BOM is still removed from the hash input in these fallback cases.
+or semantic equivalence detection. For unterminated strings, quoted identifiers, or
+block comments, the entire script retains its original line endings. A leading BOM is
+still removed from the hash input in these fallback cases.
 
 **Adopting normalization on an existing database can rerun affected scripts once.**
 Legacy hashes cannot be converted without the original content. Review scripts for

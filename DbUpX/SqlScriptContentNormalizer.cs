@@ -40,6 +40,8 @@ namespace DbUpX
             }
 
             var start = content.Length > 0 && content[0] == '\uFEFF' ? 1 : 0;
+            // PostgreSQL dollar quotes are scanned as ordinary SQL: DbUp also reads $name$ as a
+            // variable token, and dollar-quoted bodies are usually code whose EOLs should normalize.
             var postgres = hashingMode == SqlScriptHashingMode.NormalizePostgreSql;
             var result = new StringBuilder(content.Length);
             var index = start;
@@ -83,37 +85,25 @@ namespace DbUpX
                     {
                         return content.Substring(start);
                     }
+
+                    // PostgreSQL only continues an E-string across whitespace and -- comments.
+                    continuedEscapeString = false;
                 }
                 else if (current == '\'' || current == '"' || (!postgres && current == '['))
                 {
                     var escapeString = postgres && current == '\'' &&
                         (continuedEscapeString || IsEscapeString(content, index, start));
-                    var end = FindQuotedEnd(content, index, current == '[' ? ']' : current,
-                        escapeString, postgres && current == '\'' && !escapeString);
+                    // PostgreSQL ordinary strings assume standard_conforming_strings = on.
+                    var end = FindQuotedEnd(content, index, current == '[' ? ']' : current, escapeString);
                     if (end < 0)
                     {
-                        // Do not guess about incomplete SQL or session-dependent backslash escapes.
+                        // Do not guess about incomplete SQL.
                         return content.Substring(start);
                     }
 
                     result.Append(content, index, end - index);
                     index = end;
                     continuedEscapeString = escapeString;
-                }
-                else if (postgres && current == '$' &&
-                    (index == start || !IsIdentifierPart(content[index - 1])) &&
-                    TryGetDollarDelimiter(content, index, out var delimiter))
-                {
-                    var closing = content.IndexOf(delimiter, index + delimiter.Length, StringComparison.Ordinal);
-                    if (closing < 0)
-                    {
-                        return content.Substring(start);
-                    }
-
-                    var end = closing + delimiter.Length;
-                    result.Append(content, index, end - index);
-                    index = end;
-                    continuedEscapeString = false;
                 }
                 else
                 {
@@ -148,24 +138,15 @@ namespace DbUpX
             }
         }
 
-        // Returns the first position after the closing delimiter, or -1 when unsafe to scan.
-        private static int FindQuotedEnd(
-            string content, int start, char delimiter, bool escapeString, bool ambiguousBackslash)
+        // Returns the first position after the closing delimiter, or -1 when it is not closed.
+        private static int FindQuotedEnd(string content, int start, char delimiter, bool escapeString)
         {
             for (var index = start + 1; index < content.Length; index++)
             {
-                if (content[index] == '\\')
+                if (escapeString && content[index] == '\\')
                 {
-                    if (ambiguousBackslash)
-                    {
-                        return -1;
-                    }
-
-                    if (escapeString)
-                    {
-                        index++;
-                        continue;
-                    }
+                    index++;
+                    continue;
                 }
 
                 if (content[index] == delimiter)
@@ -190,38 +171,10 @@ namespace DbUpX
                 (quote - 1 == start || !IsIdentifierPart(content[quote - 2]));
         }
 
-        private static bool TryGetDollarDelimiter(string content, int start, out string delimiter)
-        {
-            var index = start + 1;
-            if (index < content.Length && IsIdentifierStart(content[index]))
-            {
-                index++;
-                while (index < content.Length &&
-                    (IsIdentifierStart(content[index]) || (content[index] >= '0' && content[index] <= '9')))
-                {
-                    index++;
-                }
-            }
-
-            if (index < content.Length && content[index] == '$')
-            {
-                delimiter = content.Substring(start, index - start + 1);
-                return true;
-            }
-
-            delimiter = null;
-            return false;
-        }
-
-        private static bool IsIdentifierStart(char value)
-        {
-            return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
-                value == '_' || value >= 128;
-        }
-
         private static bool IsIdentifierPart(char value)
         {
-            return IsIdentifierStart(value) || (value >= '0' && value <= '9') || value == '$';
+            return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
+                (value >= '0' && value <= '9') || value == '_' || value == '$' || value >= 128;
         }
 
         private static bool Matches(string content, int index, string value)

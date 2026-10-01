@@ -116,21 +116,30 @@ namespace DbUpX.Tests
         }
 
         [Fact]
-        public void PreservesPostgreSqlDollarQuotedStrings()
+        public void NormalizesPostgreSqlDollarQuotedBodiesLikeCode()
         {
+            var mode = SqlScriptHashingMode.NormalizePostgreSql;
             foreach (var delimiter in new[] { "$$", "$body$", "$Body_2$", "$é$" })
             {
-                var quoted = delimiter + "BEGIN\r\nSELECT '-- /* '' $other$';\r\nEND" + delimiter;
-                NameWithHash.GenerateHash("DO\r\n" + quoted + ";\r", SqlScriptHashingMode.NormalizePostgreSql)
-                    .Should().Be(RawHash("DO\n" + quoted + ";\n"));
-                NameWithHash.GenerateHash(quoted, SqlScriptHashingMode.NormalizePostgreSql)
-                    .Should().NotBe(NameWithHash.GenerateHash(quoted.Replace("\r\n", "\n"),
-                        SqlScriptHashingMode.NormalizePostgreSql));
+                var body = "DO\r\n" + delimiter + "BEGIN\r\nSELECT '-- /* '' $other$';\r\nEND" + delimiter + ";\r";
+                NameWithHash.GenerateHash(body, mode)
+                    .Should().Be(RawHash(body.Replace("\r\n", "\n").Replace("\r", "\n")));
             }
 
-            const string sql = "SELECT array[\r\n1, 2], foo$tag$, $1;\r\n";
-            NameWithHash.GenerateHash(sql, SqlScriptHashingMode.NormalizePostgreSql)
-                .Should().Be(RawHash(sql.Replace("\r\n", "\n")));
+            const string quoted = "'line\r\nbreak'";
+            NameWithHash.GenerateHash("DO $$\r\nBEGIN\r\nRAISE NOTICE " + quoted + ";\r\nEND $$;\r\n", mode)
+                .Should().Be(RawHash("DO $$\nBEGIN\nRAISE NOTICE " + quoted + ";\nEND $$;\n"));
+
+            // DbUp variable tokens use the same $name$ syntax as dollar-quote tags.
+            foreach (var sql in new[]
+            {
+                "CREATE TABLE $schema$.a (id int);\r\nCREATE TABLE $schema$.b (id int);\r\n",
+                "CREATE TABLE $schema$.a (id int);\r\n",
+                "SELECT array[\r\n1, 2], foo$tag$, $1;\r\n"
+            })
+            {
+                NameWithHash.GenerateHash(sql, mode).Should().Be(RawHash(sql.Replace("\r\n", "\n")));
+            }
         }
 
         [Fact]
@@ -138,10 +147,15 @@ namespace DbUpX.Tests
         {
             const string first = "E'first\\'\r\nstill a string'";
             const string continuation = "'continued\\'\r\nstring'";
-            var sql = "SELECT\r\n" + first + "\r\n/* comment */\r\n" + continuation + ";\r\n";
-            var expected = "SELECT\n" + first + "\n/* comment */\n" + continuation + ";\n";
+            var sql = "SELECT\r\n" + first + "\r\n-- comment\r\n" + continuation + ";\r\n";
+            var expected = "SELECT\n" + first + "\n-- comment\n" + continuation + ";\n";
             NameWithHash.GenerateHash(sql, SqlScriptHashingMode.NormalizePostgreSql)
                 .Should().Be(RawHash(expected));
+
+            // A block comment ends the E-string chain, so the next segment is an ordinary string.
+            const string afterBlockComment = "SELECT E'x'\r\n/* c */\r\n'p\\';\r\nSELECT 2;\r\n";
+            NameWithHash.GenerateHash(afterBlockComment, SqlScriptHashingMode.NormalizePostgreSql)
+                .Should().Be(RawHash(afterBlockComment.Replace("\r\n", "\n")));
 
             const string escapedBackslash = "SELECT e'\\\\';\r\nSELECT 2;";
             NameWithHash.GenerateHash(escapedBackslash, SqlScriptHashingMode.NormalizePostgreSql)
@@ -182,25 +196,33 @@ namespace DbUpX.Tests
 
             const string bracket = "SELECT 1;\r\n[open";
             NameWithHash.GenerateHash(bracket, SqlScriptHashingMode.NormalizeSqlServer).Should().Be(RawHash(bracket));
-            foreach (var sql in new[] { "SELECT 1;\r\n$body$open", "SELECT 1;\r\n$Body$wrong case$body$", "SELECT 1;\r\nE'open\\'" })
+            foreach (var sql in new[] { "SELECT 1;\r\nE'open\\'", "SELECT 1;\r\nSELECT $$it's$$;\r\n" })
             {
                 NameWithHash.GenerateHash(sql, SqlScriptHashingMode.NormalizePostgreSql).Should().Be(RawHash(sql));
             }
         }
 
         [Fact]
-        public void FallsBackForSessionDependentPostgreSqlBackslashes()
+        public void TreatsPostgreSqlBackslashesAsLiteralInOrdinaryStrings()
         {
             foreach (var sql in new[]
             {
                 "SELECT 1;\r\nSELECT 'path\\file';\r\n",
-                "SELECT 1;\r\nSELECT 'escaped\\'\r\nquote';\r\n",
+                "SELECT regexp_replace(x, '\\d+', '');\r\nSELECT 2;\r\n",
                 "SELECT E'explicit', 'ordinary\\path';\r\n"
             })
             {
                 NameWithHash.GenerateHash("\uFEFF" + sql, SqlScriptHashingMode.NormalizePostgreSql)
-                    .Should().Be(RawHash(sql));
+                    .Should().Be(RawHash(sql.Replace("\r\n", "\n")));
             }
+        }
+
+        [Fact]
+        public void SqlServerModeIgnoresPostgreSqlSyntax()
+        {
+            const string sql = "SELECT $x$, 'a\\';\r\nSELECT E'b', $$c$$;\r\n";
+            NameWithHash.GenerateHash(sql, SqlScriptHashingMode.NormalizeSqlServer)
+                .Should().Be(RawHash(sql.Replace("\r\n", "\n")));
         }
 
         [Fact]

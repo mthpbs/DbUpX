@@ -104,8 +104,7 @@ namespace DbUpX
         /// <summary>
         /// Returns a base64 SHA256 hash of UTF-8 content using the selected normalization mode.
         /// Normalized modes ignore one leading BOM and normalize EOLs outside quoted SQL content.
-        /// Incomplete quoted regions or comments, and PostgreSQL ordinary strings containing
-        /// backslashes, retain their original EOLs throughout the script.
+        /// Incomplete quoted regions or comments retain their original EOLs throughout the script.
         /// </summary>
         public static string GenerateHash(string content, SqlScriptHashingMode hashingMode)
         {
