@@ -40,18 +40,7 @@ namespace DbUpX
         /// <param name="scripts">Scripts.</param>
         public static IEnumerable<SqlScript> HashNames(this IEnumerable<SqlScript> scripts)
         {
-            return scripts.HashNames(SqlScriptHashingMode.Raw);
-        }
-
-        /// <summary>
-        /// Appends hashes using the selected mode without changing executable contents.
-        /// Use the same mode as the journal that stores the scripts.
-        /// </summary>
-        public static IEnumerable<SqlScript> HashNames(
-            this IEnumerable<SqlScript> scripts, SqlScriptHashingMode hashingMode)
-        {
-            SqlScriptContentNormalizer.ValidateMode(hashingMode);
-            return scripts.Select(s => new SqlScript(NameWithHash.FromScript(s, hashingMode).ToString(),
+            return scripts.Select(s => new SqlScript(NameWithHash.FromScript(s).ToString(),
                                                      s.Contents));
         }
 

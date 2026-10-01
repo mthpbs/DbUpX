@@ -16,21 +16,11 @@ namespace DbUpX
             Func<IUpgradeLog> logger,
             string schemaName,
             string tableName)
-            : this(connections, logger, schemaName, tableName, SqlScriptHashingMode.Raw)
-        {
-        }
-
-        /// <summary>Creates a PostgreSQL journal using raw or PostgreSQL normalized hashes.</summary>
-        public PostgreSqlHashingJournal(
-            Func<IConnectionManager> connections,
-            Func<IUpgradeLog> logger,
-            string schemaName,
-            string tableName,
-            SqlScriptHashingMode hashingMode)
-            : base(connections, logger, new PostgresqlObjectParser(), schemaName ?? "public", tableName, hashingMode)
-        {
-            SqlScriptContentNormalizer.ValidateProviderMode(hashingMode, SqlScriptHashingMode.NormalizePostgreSql);
-        }
+            : base(connections, 
+                   logger, 
+                   new PostgresqlObjectParser(), 
+                   schemaName ?? "public", 
+                   tableName) { }
 
         protected override string CreateSchemaTableSql()
         {

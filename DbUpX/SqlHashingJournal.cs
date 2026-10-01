@@ -16,21 +16,11 @@ namespace DbUpX
             Func<IUpgradeLog> logger,
             string schemaName,
             string tableName)
-            : this(connections, logger, schemaName, tableName, SqlScriptHashingMode.Raw)
-        {
-        }
-
-        /// <summary>Creates a SQL Server journal using raw or SQL Server normalized hashes.</summary>
-        public SqlHashingJournal(
-            Func<IConnectionManager> connections,
-            Func<IUpgradeLog> logger,
-            string schemaName,
-            string tableName,
-            SqlScriptHashingMode hashingMode)
-            : base(connections, logger, new SqlServerObjectParser(), schemaName, tableName, hashingMode)
-        {
-            SqlScriptContentNormalizer.ValidateProviderMode(hashingMode, SqlScriptHashingMode.NormalizeSqlServer);
-        }
+            : base(connections, 
+                   logger, 
+                   new SqlServerObjectParser(), 
+                   schemaName, 
+                   tableName) { }
 
         protected override string CreateSchemaTableSql()
         {
