@@ -106,6 +106,61 @@ var upgrader = DeployChanges.To.PostgresqlDatabase(connectionString)
     .PerformUpgrade();
 ```
 
+## Optional EOL and BOM normalization
+
+By default, DbUpX hashes the exact UTF-8 script content, preserving existing journal
+behavior. To ignore file line-ending differences and one leading Unicode BOM
+(`U+FEFF`), explicitly select the normalization mode for your database:
+
+```csharp
+// SQL Server
+var sqlUpgrader = DeployChanges.To.SqlDatabase(connectionString)
+    .WithScriptsAndCodeEmbeddedInAssembly(typeof(MyAssembly).Assembly)
+    .JournalToSqlWithHashing(SqlScriptHashingMode.NormalizeSqlServer)
+    .Build();
+
+// PostgreSQL
+var postgresUpgrader = DeployChanges.To.PostgresqlDatabase(connectionString)
+    .WithScriptsAndCodeEmbeddedInAssembly(typeof(MyAssembly).Assembly)
+    .JournalToPostgreSqlWithHashing(SqlScriptHashingMode.NormalizePostgreSql)
+    .Build();
+```
+
+The existing optional `filter`, `schemaName`, and `tableName` arguments can follow
+the mode. The builder uses the same mode for filtering and journal storage.
+`SqlScriptHashingMode.Raw` explicitly selects the original behavior.
+
+Normalization converts CRLF and CR to LF outside quoted SQL content, including
+inside comments. It preserves strings and quoted identifiers exactly, including
+SQL Server bracketed identifiers. Consequently, different line endings **inside** a
+multiline string still produce different hashes. The SQL passed to the executor is
+always the original content.
+
+PostgreSQL dollar-quoted bodies (`$$ ... $$`, `$body$ ... $body$`) are scanned as
+ordinary SQL, the same way SQL Server procedure bodies are: line endings in function
+and `DO` block code are normalized, while ordinary strings inside the body are still
+preserved. This also keeps DbUp `$variable$` tokens from being mistaken for dollar
+quotes. PostgreSQL ordinary strings assume `standard_conforming_strings = on` (the
+default since PostgreSQL 9.1), so a backslash is literal there; only `E'...'`
+strings treat backslash as an escape.
+
+Spaces, tabs, extra blank lines, final-newline presence, comment text, embedded BOMs,
+and other Unicode characters remain significant. This is not general SQL formatting
+or semantic equivalence detection. For unterminated strings, quoted identifiers, or
+block comments, the entire script retains its original line endings. A leading BOM is
+still removed from the hash input in these fallback cases.
+
+**Adopting normalization on an existing database can rerun affected scripts once.**
+Legacy hashes cannot be converted without the original content. Review scripts for
+safe re-execution before opting in; DbUpX does not rewrite existing journal rows or
+silently accept legacy hashes as equivalent. Keep the selected mode consistent on
+subsequent runs. Hashes remain SHA256 encoded as base64, with no journal schema change.
+
+For manual composition, matching overloads are available on `NameWithHash.GenerateHash`,
+`NameWithHash.FromScript`, `HashNames`, and journal constructors. Use the same mode
+throughout. Equal content hashes do not merge scripts with different names: script
+names remain part of journal identity.
+
 ## Filtering and Sorting Scripts
 
 For example, you may have two sets of scripts:
